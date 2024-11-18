@@ -1,7 +1,22 @@
-export default function App() {
+// App.js
+import React from 'react';
+import { useAuth } from './context/authContext';
+
+import Home from './containers/main/Home';
+import LoginRegister from './containers/auth/LoginRegister';
+
+const App = () => {
+  const { isAuthenticated } = useAuth();
+
   return (
-    <h1 className="text-3xl font-bold underline">
-      Hello world!
-    </h1>
-  )
-}
+    <div>
+      {isAuthenticated ? (
+        <Home />
+      ) : (
+        <LoginRegister />
+      )}
+    </div>
+  );
+};
+
+export default App;
