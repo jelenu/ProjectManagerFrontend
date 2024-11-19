@@ -1,5 +1,5 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import { login, register } from '../services/authService';  // Importing login and register functions from authService
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import { login, register, tokenVerify, tokenRefresh } from '../services/authService';  // Importing login and register functions from authService
 
 // Create an AuthContext to provide authentication data and functions to other components
 const AuthContext = createContext();
@@ -11,18 +11,53 @@ export const AuthProvider = ({ children }) => {
   const [accessToken, setAccessToken] = useState(null);  // Stores the access token
   const [refreshToken, setRefreshToken] = useState(null);  // Stores the refresh token
 
+  // Define the checkTokenValidity function outside the useEffect
+  const checkTokenValidity = useCallback(async (accessToken, refreshToken) => {
+    // First, check if the accessToken is valid
+    const isValid = await tokenVerify(accessToken);
+    if (isValid) {
+      // If the token is valid, do nothing
+      console.log("Token is valid.");
+      return true;
+    } else {
+      // If the token is invalid, attempt to refresh it
+      console.log("Token is invalid, attempting to refresh...");
+      const newAccessToken = await tokenRefresh(refreshToken);
+      
+      if (newAccessToken) {
+        // If the refreshToken is valid and returns a new accessToken, update the state
+        setAccessToken(newAccessToken);
+        localStorage.setItem('accessToken', newAccessToken);
+        console.log("Token refreshed successfully.");
+        return true;
+      } else {
+        // If the refreshToken also fails, clear the tokens and mark the user as unauthenticated
+        logoutUser();
+        console.error("Both tokens have expired or are invalid.");
+        return false;
+      }
+    }
+  }, []);  // Ensures that the `checkTokenValidity` function does not change
+
   // Effect hook to check if tokens are stored in localStorage on component mount
   useEffect(() => {
-    const savedAccessToken = localStorage.getItem('accessToken');
-    const savedRefreshToken = localStorage.getItem('refreshToken');
-    
-    // If both tokens exist in localStorage, set them to state and mark as authenticated
-    if (savedAccessToken && savedRefreshToken) {
-      setAccessToken(savedAccessToken);
-      setRefreshToken(savedRefreshToken);
-      setIsAuthenticated(true);
-    }
-  }, []);
+    const checkTokens = async () => {
+      const savedAccessToken = localStorage.getItem('accessToken');
+      const savedRefreshToken = localStorage.getItem('refreshToken');
+      
+      // If both tokens exist in localStorage, set them to state and mark as authenticated
+      if (savedAccessToken && savedRefreshToken) {
+        const isValid = await checkTokenValidity(savedAccessToken, savedRefreshToken);
+        if(isValid) {
+          setAccessToken(savedAccessToken);
+          setRefreshToken(savedRefreshToken);
+          setIsAuthenticated(true);
+        }
+      }
+    };
+
+    checkTokens(); 
+  }, [checkTokenValidity]);  // Added `checkTokenValidity` as a dependency
 
   // Function to handle user login
   const loginUser = async (username, password) => {
