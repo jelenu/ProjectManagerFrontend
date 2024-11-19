@@ -1,18 +1,18 @@
 import React from 'react';
-import { useAuth } from '../../context/authContext';
+import Header from '../../components/layout/Header';
+import Sidebar from '../../components/layout/SideBar';
+import CreateProject from '../../components/projects/CreateProject';
 
 const Home = () => {
-  const { logoutUser } = useAuth();
-
-  const handleLogout = () => {
-    logoutUser();
-  };
-
   return (
-    <div className="">
-      <h1>Welcome to the Home</h1>
-      <p>You are authenticated!</p>
-      <button onClick={handleLogout}>Log out</button>
+    <div className="flex flex-col h-screen">
+      <Header />
+      <div className="flex flex-1 overflow-hidden">
+        <Sidebar />
+        <main className="flex-1 bg-gray-100 p-6 overflow-auto">
+          <CreateProject/>
+        </main>
+      </div>
     </div>
   );
 };

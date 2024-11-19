@@ -19,7 +19,6 @@ const Login = ({ toggleAuthMode }) => {
 
     // Attempt to log in with provided username and password
     const result = await loginUser(username, password);
-    console.log(result.error); // Log any error to the console for debugging
 
     // If there's an error, update the respective error states
     if (result.error) {

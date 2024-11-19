@@ -34,7 +34,6 @@ export const AuthProvider = ({ children }) => {
       if (data.error) {
         return { error: data.error };
       }
-
       // Save the access and refresh tokens in localStorage
       localStorage.setItem('accessToken', data.accessToken);
       localStorage.setItem('refreshToken', data.refreshToken);

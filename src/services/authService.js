@@ -22,8 +22,8 @@ export const login = async (username, password) => {
     // Parse the response if the request is successful
     const data = await response.json();
     return {
-      accessToken: data.accessToken,  // Return the access token from the response
-      refreshToken: data.refreshToken,  // Return the refresh token from the response
+      accessToken: data.access,  // Return the access token from the response
+      refreshToken: data.refresh,  // Return the refresh token from the response
     };
   } catch (error) {
     // Catch any network or other errors
