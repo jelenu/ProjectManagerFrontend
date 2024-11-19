@@ -1,51 +1,56 @@
 import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
-import { login, register, tokenVerify, tokenRefresh } from '../services/authService';  // Importing login and register functions from authService
+import { login, register, tokenVerify, tokenRefresh } from '../services/authService';  
 
-// Create an AuthContext to provide authentication data and functions to other components
+// Crear el contexto de autenticación
 const AuthContext = createContext();
 
-// The AuthProvider component wraps your app and provides authentication state and actions
-export const AuthProvider = ({ children }) => {
-  // State variables to manage authentication status and tokens
-  const [isAuthenticated, setIsAuthenticated] = useState(false); // Tracks if the user is authenticated
-  const [accessToken, setAccessToken] = useState(null);  // Stores the access token
-  const [refreshToken, setRefreshToken] = useState(null);  // Stores the refresh token
+// Función para leer una cookie por su nombre
+const getCookie = (name) => {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop().split(';').shift();
+  return null;
+};
 
-  // Define the checkTokenValidity function outside the useEffect
+// Función para guardar una cookie
+const setCookie = (name, value, days) => {
+  const expires = new Date(Date.now() + days * 86400000).toUTCString();
+  document.cookie = `${name}=${value}; expires=${expires}; path=/;`;
+
+};
+
+export const AuthProvider = ({ children }) => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [accessToken, setAccessToken] = useState(null);
+  const [refreshToken, setRefreshToken] = useState(null);
+
   const checkTokenValidity = useCallback(async (accessToken, refreshToken) => {
-    // First, check if the accessToken is valid
     const isValid = await tokenVerify(accessToken);
     if (isValid) {
-      // If the token is valid, do nothing
       console.log("Token is valid.");
       return true;
     } else {
-      // If the token is invalid, attempt to refresh it
       console.log("Token is invalid, attempting to refresh...");
       const newAccessToken = await tokenRefresh(refreshToken);
       
       if (newAccessToken) {
-        // If the refreshToken is valid and returns a new accessToken, update the state
         setAccessToken(newAccessToken);
-        localStorage.setItem('accessToken', newAccessToken);
+        setCookie('accessToken', newAccessToken, 1);  // Guardar en cookie (expira en 1 día)
         console.log("Token refreshed successfully.");
         return true;
       } else {
-        // If the refreshToken also fails, clear the tokens and mark the user as unauthenticated
         logoutUser();
         console.error("Both tokens have expired or are invalid.");
         return false;
       }
     }
-  }, []);  // Ensures that the `checkTokenValidity` function does not change
+  }, []);
 
-  // Effect hook to check if tokens are stored in localStorage on component mount
   useEffect(() => {
     const checkTokens = async () => {
-      const savedAccessToken = localStorage.getItem('accessToken');
-      const savedRefreshToken = localStorage.getItem('refreshToken');
+      const savedAccessToken = getCookie('accessToken');
+      const savedRefreshToken = getCookie('refreshToken');
       
-      // If both tokens exist in localStorage, set them to state and mark as authenticated
       if (savedAccessToken && savedRefreshToken) {
         const isValid = await checkTokenValidity(savedAccessToken, savedRefreshToken);
         if(isValid) {
@@ -56,81 +61,75 @@ export const AuthProvider = ({ children }) => {
       }
     };
 
-    checkTokens(); 
-  }, [checkTokenValidity]);  // Added `checkTokenValidity` as a dependency
+    checkTokens();
+  }, [checkTokenValidity]);
 
-  // Function to handle user login
   const loginUser = async (username, password) => {
     try {
-      // Call the login service to authenticate the user
       const data = await login(username, password);
-      
-      // If there is an error in the login response, return the error
+
       if (data.error) {
         return { error: data.error };
       }
-      // Save the access and refresh tokens in localStorage
-      localStorage.setItem('accessToken', data.accessToken);
-      localStorage.setItem('refreshToken', data.refreshToken);
 
-      // Set tokens to state and mark the user as authenticated
+      // Guardar los tokens en cookies
+      setCookie('accessToken', data.accessToken, 1);  // Expira en 1 día
+      setCookie('refreshToken', data.refreshToken, 7);  // Expira en 7 días
+
       setAccessToken(data.accessToken);
       setRefreshToken(data.refreshToken);
       setIsAuthenticated(true);
+
+      console.log('Cookies after login:', document.cookie);  // Ver las cookies en la consola
+
       
       return { success: true };
     } catch (error) {
-      console.error("Authentication error", error);  // Log any error during login
-      return { error: "Error making login request" };  // Return a general error message
+      console.error("Authentication error", error);
+      return { error: "Error making login request" };
     }
   };
 
-  // Function to handle user registration
   const registerUser = async (username, email, password) => {
     try {
-      // Call the register service to create a new user
       const data = await register(username, email, password);
 
-      // If there is an error in the registration response, return the error
       if (data.error) {
         return { error: data.error };
       }
 
-      return { success: true }; // Return success if registration is successful
+      return { success: true };
     } catch (error) {
-      console.error("Registration error", error);  // Log any error during registration
-      return { error: "Error making registration request" };  // Return a general error message
+      console.error("Registration error", error);
+      return { error: "Error making registration request" };
     }
   };
 
-  // Function to handle user logout
   const logoutUser = () => {
-    // Remove tokens from localStorage
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
+    // Eliminar los tokens de las cookies
+    document.cookie = "accessToken=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+    document.cookie = "refreshToken=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
     
-    // Reset the state variables to null or false
+    // Resetear el estado
     setAccessToken(null);
     setRefreshToken(null);
     setIsAuthenticated(false);
   };
 
-  // The context provider makes the authentication state and functions available to the app
   return (
     <AuthContext.Provider value={{ 
-      isAuthenticated,  // Whether the user is logged in or not
-      accessToken,      // The user's access token
-      refreshToken,     // The user's refresh token
-      loginUser,        // The function to log the user in
-      registerUser,     // The function to register a new user
-      logoutUser        // The function to log the user out
+      isAuthenticated, 
+      accessToken,      
+      refreshToken,     
+      loginUser,        
+      registerUser,     
+      logoutUser        
     }}>
-      {children}  {/* Render the child components */}
+      {children}
     </AuthContext.Provider>
   );
 };
 
-// Custom hook to easily access authentication data and actions in other components
 export const useAuth = () => {
-  return useContext(AuthContext);  // Use the context and return its value
+  return useContext(AuthContext);
 };
